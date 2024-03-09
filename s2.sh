@@ -140,7 +140,7 @@ create_shadow_tls_systemd() {
     
     [Service]
     Type=simple  
-    ExecStart=/usr/local/bin/shadow-tls server --listen 0.0.0.0:${shadow_tls_port} --server 127.0.0.1:${snell_port} --tls ${shadow_tls_tls_domain}:443 --password ${shadow_tls_password} --v3
+    ExecStart=/usr/local/bin/shadow-tls server --listen 0.0.0.0:${shadow_tls_port} --server 127.0.0.1:${snell_port} --tls ${shadow_tls_tls_domain}:443 --password ${shadow_tls_password}
     StandardOutput=syslog
     StandardError=syslog
     SyslogIdentifier=shadow-tls
@@ -156,7 +156,7 @@ EOF
 # Configure Shadow-TLS  
 config_shadow_tls() { 
     read -rp "Assign a port for Shadow-TLS (Default: 8443): " shadow_tls_port
-    [[ -z ${shadow_tls_port} ]] && shadow_tls_port=8443
+    [[ -z ${shadow_tls_port} ]] && shadow_tls_port=$(find_unused_port) && echo "[INFO] Generated a random port for Shadow-TLS: $shadow_tls_port"
     read -rp "Enter TLS domain for Shadow-TLS (Default: gateway.icloud.com): " shadow_tls_tls_domain  
     [[ -z ${shadow_tls_tls_domain} ]] && shadow_tls_tls_domain="gateway.icloud.com"
     read -rp "Enter password for Shadow-TLS (Leave it blank to generate a random one): " shadow_tls_password
@@ -169,9 +169,9 @@ config_shadow_tls() {
 
 # Install Snell and Shadow-TLS  
 install() {
-    if [[ -e "${snell_workspace}/snell-server" ]] || [[ -e "/usr/local/bin/shadow-tls" ]]; then  
+    if [[ -e "${snell_workspace}/snell-server" ]] || [[ -e "/usr/local/bin/shadow-tls" ]]; then
         read -rp "Snell or Shadow-TLS is already installed. Reinstall? (y/n): " input
-        case "$input" in  
+        case "$input" in
             y|Y) uninstall ;;
             *) return 0 ;;
         esac
@@ -181,40 +181,45 @@ install() {
 
     # Install Snell
     msg info "Downloading Snell..."
-    mkdir -p "${snell_workspace}"  
+    mkdir -p "${snell_workspace}"
     cd "${snell_workspace}" || exit 1
-    arch=$(uname -m)  
+    arch=$(uname -m)
     case $arch in
-        x86_64) snell_url="https://dl.nssurge.com/snell/snell-server-v4.0.1-linux-amd64.zip" ;;  
+        x86_64) snell_url="https://dl.nssurge.com/snell/snell-server-v4.0.1-linux-amd64.zip" ;;
         aarch64) snell_url="https://dl.nssurge.com/snell/snell-server-v4.0.1-linux-aarch64.zip" ;;
-        *) msg err "Unsupported architecture: $arch" && exit 1 ;;  
+        *) msg err "Unsupported architecture: $arch" && exit 1 ;;
     esac
     wget -O snell-server.zip "${snell_url}"
-    unzip -o snell-server.zip  
+    unzip -o snell-server.zip
     rm snell-server.zip
     chmod +x snell-server
-    
-    create_snell_systemd  
+
+    create_snell_systemd
     create_snell_conf
-    
-    # Install Shadow-TLS  
+
+    # Install Shadow-TLS
     msg info "Downloading Shadow-TLS..."
     mkdir -p "${shadow_tls_workspace}"
     cd "${shadow_tls_workspace}" || exit 1
-    case $arch in  
-        x86_64) shadow_tls_url="https://github.com/ihciah/shadow-tls/releases/download/v0.2.25/shadow-tls-x86_64-unknown-linux-musl" ;;
-        aarch64) shadow_tls_url="https://github.com/ihciah/shadow-tls/releases/download/v0.2.25/shadow-tls-aarch64-unknown-linux-musl" ;;
+
+    # Get the latest release of Shadow-TLS from GitHub API
+    latest_release=$(wget -qO- https://api.github.com/repos/ihciah/shadow-tls/releases/latest)
+    latest_version=$(echo "$latest_release" | jq -r '.tag_name')
+    case $arch in
+        x86_64) shadow_tls_url=$(echo "$latest_release" | jq -r '.assets[] | select(.name | contains("x86_64-unknown-linux-musl")) | .browser_download_url') ;;
+        aarch64) shadow_tls_url=$(echo "$latest_release" | jq -r '.assets[] | select(.name | contains("aarch64-unknown-linux-musl")) | .browser_download_url') ;;
         *) msg err "Unsupported architecture: $arch" && exit 1 ;;
-    esac  
+    esac
+
     wget -O shadow-tls "${shadow_tls_url}"
     chmod +x shadow-tls
     mv shadow-tls /usr/local/bin/
-    
+
     config_shadow_tls
     create_shadow_tls_systemd
-    
-    run  
-    msg ok "Snell with Shadow-TLS deployed successfully."
+
+    run
+    msg ok "Snell with Shadow-TLS ${latest_version} deployed successfully."
 }
 
 # Uninstall Snell and Shadow-TLS  
