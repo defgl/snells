@@ -122,9 +122,9 @@ create_snell_conf() {
     [[ -z ${snell_psk} ]] && snell_psk=$(generate_random_psk) && echo "[INFO] Generated a random PSK for Snell: $snell_psk"
 
     cat > ${snell_workspace}/snell-server.conf << EOF
-    [snell-server]  
-    listen = 0.0.0.0:${snell_port}
-    psk = ${snell_psk}
+[snell-server]  
+listen = 0.0.0.0:${snell_port}
+psk = ${snell_psk}
 
 EOF
 
@@ -140,7 +140,7 @@ create_shadow_tls_systemd() {
     
     [Service]
     Type=simple  
-    ExecStart=/usr/local/bin/shadow-tls server --listen 0.0.0.0:${shadow_tls_port} --server 127.0.0.1:${snell_port} --tls ${shadow_tls_tls_domain}:443 --password ${shadow_tls_password}  
+    ExecStart=/usr/local/bin/shadow-tls server --listen 0.0.0.0:${shadow_tls_port} --server 127.0.0.1:${snell_port} --tls ${shadow_tls_tls_domain}:443 --password ${shadow_tls_password} --v3
     StandardOutput=syslog
     StandardError=syslog
     SyslogIdentifier=shadow-tls
