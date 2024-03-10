@@ -91,6 +91,13 @@ find_unused_port() {
     done
 }
 
+# Function to check server IP
+check_ip() {
+    server_ip=$(curl -s6 https://api64.ipify.org || curl -s4 https://cloudflare.com/cdn-cgi/trace | grep -oP '(?<=ip=)[^,]*')
+    ip_type=$(echo "$server_ip" | grep -oP "^\s*((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\s*$" >/dev/null && echo "ipv4" || echo "ipv6")
+    [[ -z $server_ip ]] && msg err "Unable to get server IP address." && exit 1
+}
+
 # Create systemd service file for Snell
 create_snell_systemd() {
     cat > $snell_service << EOF  
@@ -122,12 +129,12 @@ create_snell_conf() {
     [[ -z ${snell_psk} ]] && snell_psk=$(generate_random_psk) && echo "[INFO] Generated a random PSK for Snell: $snell_psk"
 
     cat > ${snell_workspace}/snell-server.conf << EOF
-[snell-server]  
-listen = 0.0.0.0:${snell_port}
+[snell-server]
+listen = ${ip_type == "ipv6" ? "::0" : "0.0.0.0"}:${snell_port}
 psk = ${snell_psk}
-
+ipv6 = ${ip_type == "ipv6"}
 EOF
-
+    
     msg ok "Snell configuration established."
 }
 
@@ -139,8 +146,8 @@ create_shadow_tls_systemd() {
     After=network.target
     
     [Service]
-    Type=simple  
-    ExecStart=/usr/local/bin/shadow-tls server --listen 0.0.0.0:${shadow_tls_port} --server 127.0.0.1:${snell_port} --tls ${shadow_tls_tls_domain}:443 --password ${shadow_tls_password}
+    Type=simple
+    ExecStart=/usr/local/bin/shadow-tls --v3 server --listen ${ip_type == "ipv6" ? "[::]:${shadow_tls_port}" : "0.0.0.0:${shadow_tls_port}"} --server ${ip_type == "ipv6" ? "[::1]:${snell_port}" : "127.0.0.1:${snell_port}"} --tls ${shadow_tls_tls_domain}:443 --password ${shadow_tls_password}
     StandardOutput=syslog
     StandardError=syslog
     SyslogIdentifier=shadow-tls
@@ -155,7 +162,7 @@ EOF
 
 # Configure Shadow-TLS  
 config_shadow_tls() { 
-    read -rp "Assign a port for Shadow-TLS (Default: 8443): " shadow_tls_port
+    read -rp "Assign a port for Shadow-TLS (Leave it blank to generate a random one): " shadow_tls_port
     [[ -z ${shadow_tls_port} ]] && shadow_tls_port=$(find_unused_port) && echo "[INFO] Generated a random port for Shadow-TLS: $shadow_tls_port"
     read -rp "Enter TLS domain for Shadow-TLS (Default: gateway.icloud.com): " shadow_tls_tls_domain  
     [[ -z ${shadow_tls_tls_domain} ]] && shadow_tls_tls_domain="gateway.icloud.com"
@@ -164,7 +171,7 @@ config_shadow_tls() {
 
     msg ok "Shadow-TLS configuration established."
     
-    echo -e "Proxy-TUIC = snell, your-server-ip, ${shadow_tls_port}, psk=${snell_psk}, version=3, shadow-tls-password=${shadow_tls_password}, shadow-tls-sni=${shadow_tls_tls_domain}, shadow-tls-version=3"
+    echo -e "Proxy-Snells = snell, ${server_ip}, ${shadow_tls_port}, psk=${snell_psk}, version=3, shadow-tls-password=${shadow_tls_password}, shadow-tls-sni=${shadow_tls_tls_domain}, shadow-tls-version=3"
 }
 
 # Install Snell and Shadow-TLS  
@@ -194,6 +201,7 @@ install() {
     rm snell-server.zip
     chmod +x snell-server
 
+    check_ip
     create_snell_systemd
     create_snell_conf
 
