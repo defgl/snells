@@ -177,19 +177,49 @@ config_shadow_tls() {
     
     echo -e "Proxy-Snells = snell, ${server_ip}, ${shadow_tls_port}, psk=${snell_psk}, version=3, shadow-tls-password=${shadow_tls_password}, shadow-tls-sni=${shadow_tls_tls_domain}, shadow-tls-version=3"
 }
-# Install Snell and Shadow-TLS  
+# Install Snell and Shadow-TLS
 install() {
+    echo "1. Install Snell and Shadow-TLS"
+    echo "2. Install Snell only"
+    echo "3. Install Shadow-TLS only"
+    read -p "Select an option (1-3): " option
+
+    case $option in
+        1)
+            install_all
+            ;;
+        2)
+            install_snell
+            ;;
+        3)
+            install_shadow_tls
+            ;;
+        *)
+            msg err "Invalid option"
+            ;;
+    esac
+}
+
+# Install both Snell and Shadow-TLS
+install_all() {
     if [[ -e "${snell_workspace}/snell-server" ]] || [[ -e "/usr/local/bin/shadow-tls" ]]; then
         read -rp "Snell or Shadow-TLS is already installed. Reinstall? (y/n): " input
         case "$input" in
-            y|Y) uninstall ;;
+            y|Y) uninstall_all ;;
             *) return 0 ;;
         esac
     fi
 
+    install_snell
+    install_shadow_tls
+    run
+    msg ok "Snell with Shadow-TLS ${latest_version} deployed successfully."
+}
+
+# Install Snell only
+install_snell() {
     install_pkg
 
-    # Install Snell
     msg info "Downloading Snell..."
     mkdir -p "${snell_workspace}"
     cd "${snell_workspace}" || exit 1
@@ -207,8 +237,12 @@ install() {
     check_ip
     create_snell_systemd
     create_snell_conf
+}
 
-    # Install Shadow-TLS
+# Install Shadow-TLS only
+install_shadow_tls() {
+    install_pkg
+
     msg info "Downloading Shadow-TLS..."
     mkdir -p "${shadow_tls_workspace}"
     cd "${shadow_tls_workspace}" || exit 1
@@ -228,27 +262,57 @@ install() {
 
     config_shadow_tls
     create_shadow_tls_systemd
-
-    run
-    msg ok "Snell with Shadow-TLS ${latest_version} deployed successfully."
 }
 
-# Uninstall Snell and Shadow-TLS  
+# Uninstall Snell and Shadow-TLS
 uninstall() {
-    stop  
+    echo "1. Uninstall Snell and Shadow-TLS"
+    echo "2. Uninstall Snell only"
+    echo "3. Uninstall Shadow-TLS only"
+    read -p "Select an option (1-3): " option
+
+    case $option in
+        1)
+            uninstall_all
+            ;;
+        2)
+            uninstall_snell
+            ;;
+        3)
+            uninstall_shadow_tls
+            ;;
+        *)
+            msg err "Invalid option"
+            ;;
+    esac
+}
+
+# Uninstall both Snell and Shadow-TLS
+uninstall_all() {
+    uninstall_snell
+    uninstall_shadow_tls
+    msg ok "Snell and Shadow-TLS have been uninstalled."
+}
+
+# Uninstall Snell only
+uninstall_snell() {
+    systemctl stop snell
     systemctl disable snell
-    systemctl disable shadow-tls
-
-    # Remove service files and workspaces  
     rm -f "${snell_service}"
-    rm -f "${shadow_tls_service}"  
     rm -rf "${snell_workspace}"
-    rm -rf "${shadow_tls_workspace}"
-    rm -f "/usr/local/bin/shadow-tls"  
-
     systemctl daemon-reload
-    
-    msg ok "Snell and Shadow-TLS have been uninstalled."  
+    msg ok "Snell has been uninstalled."
+}
+
+# Uninstall Shadow-TLS only
+uninstall_shadow_tls() {
+    systemctl stop shadow-tls
+    systemctl disable shadow-tls
+    rm -f "${shadow_tls_service}"
+    rm -rf "${shadow_tls_workspace}"
+    rm -f "/usr/local/bin/shadow-tls"
+    systemctl daemon-reload
+    msg ok "Shadow-TLS has been uninstalled."
 }
 
 # Run Snell and Shadow-TLS  
