@@ -250,6 +250,7 @@ install_shadow_tls() {
     # Get the latest release of Shadow-TLS from GitHub API
     latest_release=$(wget -qO- https://api.github.com/repos/ihciah/shadow-tls/releases/latest)
     latest_version=$(echo "$latest_release" | jq -r '.tag_name')
+    arch=$(uname -m)
     case $arch in
         x86_64) shadow_tls_url=$(echo "$latest_release" | jq -r '.assets[] | select(.name | contains("x86_64-unknown-linux-musl")) | .browser_download_url') ;;
         aarch64) shadow_tls_url=$(echo "$latest_release" | jq -r '.assets[] | select(.name | contains("aarch64-unknown-linux-musl")) | .browser_download_url') ;;
