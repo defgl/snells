@@ -140,24 +140,35 @@ EOF
 
 # Create systemd service file for Shadow-TLS 
 create_shadow_tls_systemd() {
+    local listen_addr
+    local server_addr
+
+    if [[ $ip_type == "ipv6" ]]; then
+        listen_addr="[::]:${shadow_tls_port}"
+        server_addr="[::1]:${snell_port}"
+    else
+        listen_addr="0.0.0.0:${shadow_tls_port}"
+        server_addr="127.0.0.1:${snell_port}"
+    fi
+
     cat > $shadow_tls_service << EOF
-    [Unit]  
+    [Unit]
     Description=Shadow-TLS Proxy Service
     After=network.target
-    
+
     [Service]
     Type=simple
-    ExecStart=/usr/local/bin/shadow-tls --v3 server --listen ${ip_type == "ipv6" ? "[::]:${shadow_tls_port}" : "0.0.0.0:${shadow_tls_port}"} --server ${ip_type == "ipv6" ? "[::1]:${snell_port}" : "127.0.0.1:${snell_port}"} --tls ${shadow_tls_tls_domain}:443 --password ${shadow_tls_password}
+    ExecStart=/usr/local/bin/shadow-tls --v3 server --listen ${listen_addr} --server ${server_addr} --tls ${shadow_tls_tls_domain}:443 --password ${shadow_tls_password}
     StandardOutput=syslog
     StandardError=syslog
     SyslogIdentifier=shadow-tls
-    
+
     [Install]
-    WantedBy=multi-user.target  
+    WantedBy=multi-user.target
 EOF
     systemctl daemon-reload
     systemctl enable shadow-tls
-    msg ok "Shadow-TLS systemd service created."  
+    msg ok "Shadow-TLS systemd service created."
 }
 
 # Configure Shadow-TLS  
