@@ -92,7 +92,7 @@ find_unused_port() {
 }
 
 # Function to check server IP
-check_ip() {
+get_ip() {
     server_ip=$(curl -s6 https://api64.ipify.org || curl -s4 https://cloudflare.com/cdn-cgi/trace | grep -oP '(?<=ip=)[^,]*')
     ip_type=$(echo "$server_ip" | grep -oP "^\s*((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\s*$" >/dev/null && echo "ipv4" || echo "ipv6")
     [[ -z $server_ip ]] && msg err "Unable to get server IP address." && exit 1
@@ -174,7 +174,6 @@ config_shadow_tls() {
     [[ -z ${shadow_tls_password} ]] && shadow_tls_password=$(generate_random_password) && echo "[INFO] Generated a random password for Shadow-TLS: $shadow_tls_password"
 
     msg ok "Shadow-TLS configuration established."
-    
     echo -e "Proxy-Snells = snell, ${server_ip}, ${shadow_tls_port}, psk=${snell_psk}, version=3, shadow-tls-password=${shadow_tls_password}, shadow-tls-sni=${shadow_tls_tls_domain}, shadow-tls-version=3"
 }
 # Install Snell and Shadow-TLS
@@ -212,6 +211,7 @@ install_all() {
 
     install_snell
     install_shadow_tls
+    get_ip
     run
     msg ok "Snell with Shadow-TLS ${latest_version} deployed successfully."
 }
@@ -234,7 +234,7 @@ install_snell() {
     rm snell-server.zip
     chmod +x snell-server
 
-    check_ip
+    get_ip
     create_snell_systemd
     create_snell_conf
 }
@@ -261,6 +261,7 @@ install_shadow_tls() {
     chmod +x shadow-tls
     mv shadow-tls /usr/local/bin/
 
+    get_ip
     config_shadow_tls
     create_shadow_tls_systemd
 }
@@ -415,4 +416,4 @@ menu() {
 }
 
 # Script starts here  
-menu
+menu 
