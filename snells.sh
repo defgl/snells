@@ -33,14 +33,13 @@ warn() {
 
 # Function to display log messages
 msg() {
-    timestamp=$(TZ=Asia/Shanghai date "+%Y.%m.%d-%H:%M:%S")
     case $1 in
-        err) echo -e "${red}[error | ${reset}${purple}${timestamp}${reset}${red}] $2${reset}" ;;
-        warn) echo -e "${yellow}[warning | ${reset}${purple}${timestamp}${reset}${yellow}] $2${reset}" ;;
-        ok) echo -e "${green}[success | ${reset}${purple}${timestamp}${reset}${green}] $2${reset}" ;;  
-        info) echo -e "[info | ${reset}${purple}${timestamp}${reset}] $2${reset}" ;;
-        *) echo -e "[log | ${reset}${purple}${timestamp}${reset}] $2${reset}" ;;
-    esac  
+        err) echo -e "${red}[ERROR] $2${reset}" ;;
+        warn) echo -e "${yellow}[WARN] $2${reset}" ;;
+        ok) echo -e "${green}[OK] $2${reset}" ;;
+        info) echo -e "[INFO] $2" ;;
+        *) echo -e "[LOG] $2" ;;
+    esac
 }
 
 # Check for root privileges 
@@ -123,10 +122,12 @@ EOF
 
 # Create Snell server configuration file  
 create_snell_conf() {
-    read -rp "Assign a port for Snell (Leave it blank for a random one): " snell_port 
+    read -rp "Assign a port for Snell (Leave it blank for a random one): " snell_port
     [[ -z ${snell_port} ]] && snell_port=$(find_unused_port) && echo "[INFO] Assigned a random port for Snell: $snell_port"
     read -rp "Enter PSK for Snell (Leave it blank to generate a random one): " snell_psk
     [[ -z ${snell_psk} ]] && snell_psk=$(generate_random_psk) && echo "[INFO] Generated a random PSK for Snell: $snell_psk"
+
+    get_ip
 
     cat > ${snell_workspace}/snell-server.conf << EOF
 [snell-server]
@@ -134,7 +135,6 @@ listen = ${ip_type == "ipv6" ? "::0" : "0.0.0.0"}:${snell_port}
 psk = ${snell_psk}
 ipv6 = ${ip_type == "ipv6"}
 EOF
-    
     msg ok "Snell configuration established."
 }
 
@@ -187,6 +187,7 @@ config_shadow_tls() {
     msg ok "Shadow-TLS configuration established."
     echo -e "Proxy-Snells = snell, ${server_ip}, ${shadow_tls_port}, psk=${snell_psk}, version=3, shadow-tls-password=${shadow_tls_password}, shadow-tls-sni=${shadow_tls_tls_domain}, shadow-tls-version=3"
 }
+
 # Install Snell and Shadow-TLS
 install() {
     echo "1. Install Snell and Shadow-TLS"
