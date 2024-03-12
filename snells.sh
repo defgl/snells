@@ -92,8 +92,8 @@ find_unused_port() {
 
 # Function to check server IP
 get_ip() {
-    server_ip=$(curl -s6 https://api64.ipify.org || curl -s4 https://cloudflare.com/cdn-cgi/trace | grep -oP '(?<=ip=)[^,]*')
-    ip_type=$(echo "$server_ip" | grep -oP "^\s*((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\s*$" >/dev/null && echo "ipv4" || echo "ipv6")
+    server_ip=$(curl -s4 https://cloudflare.com/cdn-cgi/trace | grep -oP '(?<=ip=)[^,]*' || curl -s4 https://api.country.is | jq -r '.ip' || curl -s6 https://api64.ipify.org)
+    ip_type=$(echo "$server_ip" | grep -qP "^\s*((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\s*$" && echo "ipv4" || echo "ipv6")
     [[ -z $server_ip ]] && msg err "Unable to get server IP address." && exit 1
 }
 
@@ -127,29 +127,23 @@ create_snell_conf() {
     read -rp "Enter PSK for Snell (Leave it blank to generate a random one): " snell_psk
     [[ -z ${snell_psk} ]] && snell_psk=$(generate_random_psk) && echo "[INFO] Generated a random PSK for Snell: $snell_psk"
 
-    get_ip
+    listen_addr=$([[ $ip_type == "ipv6" ]] && echo "::0" || echo "0.0.0.0")
+    ipv6_enabled=$([[ $ip_type == "ipv6" ]] && echo "true" || echo "false")
 
-    cat > ${snell_workspace}/snell-server.conf << EOF
-[snell-server]
-listen = ${ip_type == "ipv6" ? "::0" : "0.0.0.0"}:${snell_port}
-psk = ${snell_psk}
-ipv6 = ${ip_type == "ipv6"}
-EOF
+    cat > ${snell_workspace}/snell-server.conf <<-EOF
+		[snell-server]
+		listen = ${listen_addr}:${snell_port}
+		psk = ${snell_psk}
+		ipv6 = ${ipv6_enabled}
+	EOF
     msg ok "Snell configuration established."
 }
 
 # Create systemd service file for Shadow-TLS 
 create_shadow_tls_systemd() {
-    local listen_addr
-    local server_addr
 
-    if [[ $ip_type == "ipv6" ]]; then
-        listen_addr="[::]:${shadow_tls_port}"
-        server_addr="[::1]:${snell_port}"
-    else
-        listen_addr="0.0.0.0:${shadow_tls_port}"
-        server_addr="127.0.0.1:${snell_port}"
-    fi
+    listen_addr=$([[ $ip_type == "ipv6" ]] && echo "[::]:${shadow_tls_port}" || echo "0.0.0.0:${shadow_tls_port}")
+    server_addr=$([[ $ip_type == "ipv6" ]] && echo "[::1]:${snell_port}" || echo "127.0.0.1:${snell_port}")
 
     cat > $shadow_tls_service << EOF
     [Unit]
