@@ -121,9 +121,9 @@ create_snell_conf() {
     [[ -z ${snell_psk} ]] && snell_psk=$(generate_random_psk) && echo "[INFO] Generated a random PSK for Snell: $snell_psk"
 
     cat > ${snell_workspace}/snell-server.conf << EOF
-[snell-server]  
-listen = 0.0.0.0:${snell_port}
-psk = ${snell_psk}
+    [snell-server]  
+    listen = 0.0.0.0:${snell_port}
+    psk = ${snell_psk}
 
 EOF
 
