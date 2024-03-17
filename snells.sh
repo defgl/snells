@@ -99,63 +99,61 @@ get_ip() {
 
 # Create systemd service file for Snell
 create_snell_systemd() {
-    cat > $snell_service << EOF  
-    [Unit]
-    Description=Snell Proxy Service
-    After=network.target
+    cat > $snell_service << EOF
+[Unit]
+Description=Snell Proxy Service
+After=network.target
 
-    [Service]  
-    User=root
-    WorkingDirectory=${snell_workspace}
-    ExecStart=${snell_workspace}/snell-server -c snell-server.conf
-    Restart=on-failure
-    RestartSec=5
+[Service]
+User=root
+WorkingDirectory=${snell_workspace}
+ExecStart=${snell_workspace}/snell-server -c snell-server.conf
+Restart=on-failure
+RestartSec=5
 
-    [Install]
-    WantedBy=multi-user.target  
+[Install]
+WantedBy=multi-user.target
 EOF
     systemctl daemon-reload
     systemctl enable snell
     msg ok "Snell systemd service created."
 }
 
-# Create Snell server configuration file  
 create_snell_conf() {
     read -rp "Assign a port for Snell (Leave it blank for a random one): " snell_port
     [[ -z ${snell_port} ]] && snell_port=$(find_unused_port) && echo "[INFO] Assigned a random port for Snell: $snell_port"
     read -rp "Enter PSK for Snell (Leave it blank to generate a random one): " snell_psk
     [[ -z ${snell_psk} ]] && snell_psk=$(generate_random_psk) && echo "[INFO] Generated a random PSK for Snell: $snell_psk"
-
+    
     listen_addr=$([[ $ip_type == "ipv6" ]] && echo "::0" || echo "0.0.0.0")
     ipv6_enabled=$([[ $ip_type == "ipv6" ]] && echo "true" || echo "false")
-
+    
     cat > ${snell_workspace}/snell-server.conf <<-EOF
-		[snell-server]
-		listen = ${listen_addr}:${snell_port}
-		psk = ${snell_psk}
-		ipv6 = ${ipv6_enabled}
-	EOF
+[snell-server]
+listen = ${listen_addr}:${snell_port}
+psk = ${snell_psk}
+ipv6 = ${ipv6_enabled}
+EOF
     msg ok "Snell configuration established."
 }
 
 # Create systemd service file for Shadow-TLS 
 create_shadow_tls_systemd() {
-
     listen_addr=$([[ $ip_type == "ipv6" ]] && echo "[::]:${shadow_tls_port}" || echo "0.0.0.0:${shadow_tls_port}")
     server_addr=$([[ $ip_type == "ipv6" ]] && echo "[::1]:${snell_port}" || echo "127.0.0.1:${snell_port}")
 
     cat > $shadow_tls_service << EOF
-    [Unit]
-    Description=Shadow-TLS Proxy Service
-    After=network.target
+[Unit]
+Description=Shadow-TLS Proxy Service
+After=network.target
 
-    [Service]
-    Type=simple
-    ExecStart=/usr/local/bin/shadow-tls server --v3 --listen ${listen_addr} --server ${server_addr} --tls ${shadow_tls_tls_domain}:443 --password ${shadow_tls_password}
-    SyslogIdentifier=shadow-tls
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/shadow-tls --v3 --fastopen server --listen ${listen_addr} --server ${server_addr} --tls ${shadow_tls_tls_domain}:443 --password ${shadow_tls_password}
+SyslogIdentifier=shadow-tls
 
-    [Install]
-    WantedBy=multi-user.target
+[Install]
+WantedBy=multi-user.target
 EOF
     systemctl daemon-reload
     systemctl enable shadow-tls
@@ -176,7 +174,7 @@ config_shadow_tls() {
     [[ -z ${shadow_tls_password} ]] && shadow_tls_password=$(generate_random_password) && echo "[INFO] Generated a random password for Shadow-TLS: $shadow_tls_password"
 
     msg ok "Shadow-TLS configuration established."
-    echo -e "Proxy-Snells = snell, ${server_ip}, ${shadow_tls_port}, psk=${snell_psk}, version=3, shadow-tls-password=${shadow_tls_password}, shadow-tls-sni=${shadow_tls_tls_domain}, shadow-tls-version=3"
+    echo -e "Proxy-Snells = snell, ${server_ip}, ${shadow_tls_port}, psk=${snell_psk}, version=4, shadow-tls-password=${shadow_tls_password}, shadow-tls-sni=${shadow_tls_tls_domain}, shadow-tls-version=3"
 }
 
 # Install Snell and Shadow-TLS
