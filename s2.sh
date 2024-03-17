@@ -139,7 +139,7 @@ create_shadow_tls_systemd() {
     
     [Service]
     Type=simple  
-    ExecStart=/usr/local/bin/shadow-tls -- v3 server --listen 0.0.0.0:${shadow_tls_port} --server 127.0.0.1:${snell_port} --tls ${shadow_tls_tls_domain}:443 --password ${shadow_tls_password}
+    ExecStart=/usr/local/bin/shadow-tls --v3 server --listen 0.0.0.0:${shadow_tls_port} --server 127.0.0.1:${snell_port} --tls ${shadow_tls_tls_domain}:443 --password ${shadow_tls_password}
     SyslogIdentifier=shadow-tls
     
     [Install]
