@@ -33,14 +33,13 @@ warn() {
 
 # Function to display log messages
 msg() {
-    timestamp=$(TZ=Asia/Shanghai date "+%Y.%m.%d-%H:%M:%S")
     case $1 in
-        err) echo -e "${red}[error | ${reset}${purple}${timestamp}${reset}${red}] $2${reset}" ;;
-        warn) echo -e "${yellow}[warning | ${reset}${purple}${timestamp}${reset}${yellow}] $2${reset}" ;;
-        ok) echo -e "${green}[success | ${reset}${purple}${timestamp}${reset}${green}] $2${reset}" ;;  
-        info) echo -e "[info | ${reset}${purple}${timestamp}${reset}] $2${reset}" ;;
-        *) echo -e "[log | ${reset}${purple}${timestamp}${reset}] $2${reset}" ;;
-    esac  
+        err) echo -e "${red}[ERROR] $2${reset}" ;;
+        warn) echo -e "${yellow}[WARN] $2${reset}" ;;
+        ok) echo -e "${green}[OK] $2${reset}" ;;
+        info) echo -e "[INFO] $2" ;;
+        *) echo -e "[LOG] $2" ;;
+    esac
 }
 
 # Check for root privileges 
