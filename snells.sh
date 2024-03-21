@@ -174,6 +174,7 @@ config_shadow_tls() {
     [[ -z ${shadow_tls_password} ]] && shadow_tls_password=$(generate_random_password) && echo "[INFO] Generated a random password for Shadow-TLS: $shadow_tls_password"
 
     msg ok "Shadow-TLS configuration established."
+    echo -e "Proxy-Snells = snell, ${server_ip}, ${shadow_tls_port}, psk=${snell_psk}, version=4, shadow-tls-password=${shadow_tls_password}, shadow-tls-sni=${shadow_tls_tls_domain}, shadow-tls-version=3"
 }
 
 # Install Snell and Shadow-TLS
@@ -214,7 +215,6 @@ install_all() {
     get_ip
     run
     msg ok "Snell with Shadow-TLS ${latest_version} deployed successfully."
-    echo -e "Proxy-Snells = snell, ${server_ip}, ${shadow_tls_port}, psk=${snell_psk}, version=4, shadow-tls-password=${shadow_tls_password}, shadow-tls-sni=${shadow_tls_tls_domain}, shadow-tls-version=3"
 }
 
 # Install Snell only
@@ -238,7 +238,6 @@ install_snell() {
     get_ip
     create_snell_systemd
     create_snell_conf
-    echo -e "Proxy-Snell = snell, ${server_ip}, ${snell_port}, psk=${snell_psk}, version=4"
 }
 
 # Install Shadow-TLS only
@@ -265,15 +264,7 @@ install_shadow_tls() {
 
     get_ip
     config_shadow_tls
-
-    read -rp "Enter the port to forward traffic to: " forward_port
-    server_addr=$([[ $ip_type == "ipv6" ]] && echo "[::1]:${forward_port}" || echo "127.0.0.1:${forward_port}")
-    sed -i "s#--server.*#--server ${server_addr}#" $shadow_tls_service
-
     create_shadow_tls_systemd
-
-    msg ok "Shadow-TLS configuration established."
-    echo -e "STLS for Proxy = shadow-tls-password=${shadow_tls_password}, shadow-tls-sni=${shadow_tls_tls_domain}, shadow-tls-version=3"
 }
 
 # Uninstall Snell and Shadow-TLS
