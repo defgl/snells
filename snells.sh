@@ -162,10 +162,12 @@ EOF
 
 # Configure Shadow-TLS  
 config_shadow_tls() { 
-    common_https_ports=(8443 2053 2083 2087 2096)
-    read -rp "Select a port for Shadow-TLS (Default: randomly select from common HTTPS ports): " shadow_tls_port
+    #common_https_ports=(8443 2053 2083 2087 2096)
+    #read -rp "Select a port for Shadow-TLS (Default: randomly select from common HTTPS ports): " shadow_tls_port
+    read -rp "Select a port for Shadow-TLS (Default: randomly select from unused ports): " shadow_tls_port
     if [[ -z ${shadow_tls_port} ]]; then
-        shadow_tls_port=${common_https_ports[$RANDOM % ${#common_https_ports[@]}]}
+        #shadow_tls_port=${common_https_ports[$RANDOM % ${#common_https_ports[@]}]}
+        shadow_tls_port=$(find_unused_port)
         echo "[INFO] Randomly selected port for Shadow-TLS: $shadow_tls_port"
     fi
     read -rp "Enter TLS domain for Shadow-TLS (Default: gateway.icloud.com): " shadow_tls_tls_domain  
@@ -173,8 +175,15 @@ config_shadow_tls() {
     read -rp "Enter password for Shadow-TLS (Leave it blank to generate a random one): " shadow_tls_password
     [[ -z ${shadow_tls_password} ]] && shadow_tls_password=$(generate_random_password) && echo "[INFO] Generated a random password for Shadow-TLS: $shadow_tls_password"
 
+    #msg ok "Shadow-TLS configuration established."
+    #echo -e "Proxy-Snells = snell, ${server_ip}, ${shadow_tls_port}, psk=${snell_psk}, version=4, shadow-tls-password=${shadow_tls_password}, shadow-tls-sni=${shadow_tls_tls_domain}, shadow-tls-version=3"
+    
+    if [[ -z ${snell_psk} ]]; then
+        echo -e "Proxy-STLS = ${server_ip}, ${shadow_tls_port}, shadow-tls-password=${shadow_tls_password}, shadow-tls-sni=${shadow_tls_tls_domain}, shadow-tls-version=3"
+    else
+        echo -e "Proxy-Snells = snell, ${server_ip}, ${shadow_tls_port}, psk=${snell_psk}, version=4, shadow-tls-password=${shadow_tls_password}, shadow-tls-sni=${shadow_tls_tls_domain}, shadow-tls-version=3"
+    fi
     msg ok "Shadow-TLS configuration established."
-    echo -e "Proxy-Snells = snell, ${server_ip}, ${shadow_tls_port}, psk=${snell_psk}, version=4, shadow-tls-password=${shadow_tls_password}, shadow-tls-sni=${shadow_tls_tls_domain}, shadow-tls-version=3"
 }
 
 # Install Snell and Shadow-TLS
