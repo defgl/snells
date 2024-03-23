@@ -138,9 +138,40 @@ EOF
 }
 
 # Create systemd service file for Shadow-TLS 
+#create_shadow_tls_systemd() {
+#    listen_addr=$([[ $ip_type == "ipv6" ]] && echo "[::]:${shadow_tls_port}" || echo "0.0.0.0:${shadow_tls_port}")
+#    server_addr=$([[ $ip_type == "ipv6" ]] && echo "[::1]:${snell_port}" || echo "127.0.0.1:${snell_port}")
+#
+#    cat > $shadow_tls_service << EOF
+#[Unit]
+#Description=Shadow-TLS Proxy Service
+#After=network.target
+#
+#[Service]
+#Type=simple
+#ExecStart=/usr/local/bin/shadow-tls --v3 --fastopen server --listen ${listen_addr} --server ${server_addr} --tls ${shadow_tls_tls_domain}:443 --password ${shadow_tls_password}
+#SyslogIdentifier=shadow-tls
+#
+#[Install]
+#WantedBy=multi-user.target
+#EOF
+#    systemctl daemon-reload
+#    systemctl enable shadow-tls
+#    msg ok "Shadow-TLS systemd service created."
+#}
+
 create_shadow_tls_systemd() {
+    # 判断 snell_port 是否为空
+    if [[ -z ${snell_port} ]]; then
+        # 提示用户输入 ShadowTLS 转发端口
+        read -rp "Enter ShadowTLS forwarding port (Default: randomly select from unused ports): " shadow_tls_f_port
+        # 如果用户未输入，则使用 find_unused_port 函数查找一个未使用的端口号
+        [[ -z ${shadow_tls_f_port} ]] && shadow_tls_f_port=$(find_unused_port)
+        echo "[INFO] Selected port for ShadowTLS forwarding: $shadow_tls_f_port"
+    fi
+
     listen_addr=$([[ $ip_type == "ipv6" ]] && echo "[::]:${shadow_tls_port}" || echo "0.0.0.0:${shadow_tls_port}")
-    server_addr=$([[ $ip_type == "ipv6" ]] && echo "[::1]:${snell_port}" || echo "127.0.0.1:${snell_port}")
+    server_addr=$([[ $ip_type == "ipv6" ]] && echo "[::1]:${shadow_tls_f_port}" || echo "127.0.0.1:${shadow_tls_f_port}")
 
     cat > $shadow_tls_service << EOF
 [Unit]
@@ -155,6 +186,7 @@ SyslogIdentifier=shadow-tls
 [Install]
 WantedBy=multi-user.target
 EOF
+
     systemctl daemon-reload
     systemctl enable shadow-tls
     msg ok "Shadow-TLS systemd service created."
