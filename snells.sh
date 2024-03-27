@@ -42,17 +42,23 @@ msg() {
     esac
 }
 
-# Check for root privileges 
-[[ $EUID -ne 0 ]] && msg err "Root clearance required." && exit 1
+check_preconditions() {
+    # Check for root privileges
+    [[ $EUID -ne 0 ]] && err "Root privileges are required to run this script."
 
-# Detect package manager
-cmd=$(type -P apt-get || type -P yum)  
-[[ ! $cmd ]] && echo "This script is only working with ${yellow}(Ubuntu or Debian or CentOS)${none}, ya dig?" && exit 1
+    # Detect package manager
+    if ! command -v apt-get >/dev/null 2>&1 && ! command -v yum >/dev/null 2>&1; then
+        err "This script only supports Ubuntu or Debian."
+    fi
 
-# We gotta have systemd 
-[[ ! $(type -P systemctl) ]] && {
-    echo "Your system's missing ${yellow}(systemctl)${none}, try running: ${yellow} ${cmd} update -y;${cmd} install systemd -y ${none} for fixing.." && exit 1  
+    # Check for systemd
+    if ! command -v systemctl >/dev/null 2>&1; then
+        err "Systemd is required but not found. Please install it with:\n${cmd} update -y; ${cmd} install -y systemd"
+    fi
 }
+
+# Call the function early in the script
+check_preconditions
 
 # Initialization  
 snell_workspace="/etc/snell-server"
@@ -137,37 +143,13 @@ EOF
     msg ok "Snell configuration established."
 }
 
-# Create systemd service file for Shadow-TLS 
-#create_shadow_tls_systemd() {
-#    listen_addr=$([[ $ip_type == "ipv6" ]] && echo "[::]:${shadow_tls_port}" || echo "0.0.0.0:${shadow_tls_port}")
-#    server_addr=$([[ $ip_type == "ipv6" ]] && echo "[::1]:${snell_port}" || echo "127.0.0.1:${snell_port}")
-#
-#    cat > $shadow_tls_service << EOF
-#[Unit]
-#Description=Shadow-TLS Proxy Service
-#After=network.target
-#
-#[Service]
-#Type=simple
-#ExecStart=/usr/local/bin/shadow-tls --v3 --fastopen server --listen ${listen_addr} --server ${server_addr} --tls ${shadow_tls_tls_domain}:443 --password ${shadow_tls_password}
-#SyslogIdentifier=shadow-tls
-#
-#[Install]
-#WantedBy=multi-user.target
-#EOF
-#    systemctl daemon-reload
-#    systemctl enable shadow-tls
-#    msg ok "Shadow-TLS systemd service created."
-#}
-
 create_shadow_tls_systemd() {
-    # 判断 snell_port 是否为空
     if [[ -z ${snell_port} ]]; then
-        # 提示用户输入 ShadowTLS 转发端口
         read -rp "Enter ShadowTLS forwarding port (Default: randomly select from unused ports): " shadow_tls_f_port
-        # 如果用户未输入，则使用 find_unused_port 函数查找一个未使用的端口号
-        [[ -z ${shadow_tls_f_port} ]] && shadow_tls_f_port=$(find_unused_port)
-        echo "[INFO] Selected port for ShadowTLS forwarding: $shadow_tls_f_port"
+        [[ -z ${shadow_tls_f_port} ]] && shadow_tls_f_port=$(find_unused_port) && echo "[INFO] Randomly selected port for ShadowTLS forwarding: $shadow_tls_f_port"
+    else
+        shadow_tls_f_port=${snell_port}
+        echo "[INFO] Using Snell port as ShadowTLS forwarding port: $shadow_tls_f_port"
     fi
 
     listen_addr=$([[ $ip_type == "ipv6" ]] && echo "[::]:${shadow_tls_port}" || echo "0.0.0.0:${shadow_tls_port}")
